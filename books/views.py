@@ -7,6 +7,8 @@ from azure.keyvault.secrets import SecretClient
 from azure.identity import DefaultAzureCredential
 from azure.storage.blob import BlobServiceClient, BlobClient, ContainerClient
 from rest_framework.parsers import MultiPartParser
+import uuid
+from urllib.parse import urlparse
 # from django.contrib.staticfiles.templatetags.staticfiles import static
 
 from .models import BookModel
@@ -30,11 +32,8 @@ class createBooksView(APIView):
             
             book = self.serializer(data=data)
 
-            print("here validating")
             if not book.is_valid():
-                print(book.error_messages)
                 return Response({'message': book.error_messages},status=400)
-            print("here validating")
             
             title = str(book.validated_data.get('title'))
             author = str(book.validated_data.get('author'))
@@ -43,19 +42,33 @@ class createBooksView(APIView):
             description = str(book.validated_data.get('description'))
             price = int(book.validated_data.get('price'))
 
-            
-            
 
             db_genre = GenreModel.objects.get(name=genre)
-            print(title,author,cover_image_url,genre,description)
 
-            book,created = self.model.objects.get_or_create(title=title,author=author,cover_image_url=cover_image_url,genre=db_genre,description=description,price=price,published_by=request.user)
+            # uploading image to azure blob storage
+            filename = cover_image_url.name
+            file_upload_name = str(uuid.uuid4()) + filename
+
+            # azure stuff
+            storage_url = os.environ.get('AZURE_STORAGE_URL')
+            container_name = os.environ.get('AZURE_STORAGE_CONTAINER')
+            credential = DefaultAzureCredential()
+            blob_service_client = BlobServiceClient(account_url = storage_url, credential=credential)
+            container_client = blob_service_client.get_container_client(container_name)
+
+            blob_client = container_client.get_blob_client(file_upload_name)
+
+            # Upload the file to Azure Blob Storage
+            blob_client.upload_blob(cover_image_url.read(), overwrite=True)
+            blob_url = blob_client.url
+
+            book,created = self.model.objects.get_or_create(title=title,author=author,cover_image_url=blob_url,genre=db_genre,description=description,price=price,published_by=request.user)
 
             books = self.model.objects.all()
-            books_list = [{'id': book.id,'title': book.title, 'description': book.description,'author': book.author,'genre':   book.genre.name,'price': book.price,'cover_image_url': os.environ.get('BACKEND_URL')+book.cover_image_url.url,'is_available': book.is_available} for book in books]
+            books_list = [{'id': book.id,'title': book.title, 'description': book.description,'author': book.author,'genre':   book.genre.name,'price': book.price,'cover_image_url': book.cover_image_url,'is_available': book.is_available} for book in books]
 
             inventory = self.model.objects.filter(published_by = request.user.id)
-            json_inventory = [{'id': book.id,'title': book.title, 'description': book.description,'author': book.author,'genre':    book.genre.name,'price': book.price,'cover_image_url': os.environ.get('BACKEND_URL')+book.cover_image_url.url,'is_available': book.is_available} for book in inventory]
+            json_inventory = [{'id': book.id,'title': book.title, 'description': book.description,'author': book.author,'genre':    book.genre.name,'price': book.price,'cover_image_url': book.cover_image_url,'is_available': book.is_available} for book in inventory]
 
 
             return Response({
@@ -76,27 +89,7 @@ class BookView(APIView):
     def get(self,request):
         try:
             books = self.model.objects.all()
-            books_list=[]
-
-            for book in books:
-                book_data = {
-                    'id': book.id,
-                    'title': book.title,
-                    'description': book.description,
-                    'author': book.author,
-                    'genre': book.genre.name,
-                    'price': book.price,
-                    'is_available': book.is_available,
-                    'created_at': book.created_at,
-                    'updated_at': book.updated_at,
-                }
-
-
-                if book.cover_image_url:
-                    book_data['cover_image_url'] = os.environ.get('BACKEND_URL') + book.cover_image_url.url
-                else:
-                    book_data['cover_image_url'] = None
-                books_list.append(book_data)
+            books_list = [{'id': book.id,'title': book.title, 'description': book.description,'author': book.author,'genre':   book.genre.name,'price': book.price,'cover_image_url': book.cover_image_url,'is_available': book.is_available} for book in books]
 
             return Response({
                 'books': books_list
@@ -110,7 +103,7 @@ class InventoryOperation(APIView):
     model = BookModel
     permission_classes = [IsAuthenticated]
     serializer_class= updateBookSerializer
-
+    parser_classes = (MultiPartParser,)
 
     def put(self,request,bookId):
         try:
@@ -131,8 +124,32 @@ class InventoryOperation(APIView):
                 db_book.title = title
 
             cover_image_url = request_book.validated_data.get('cover_image_url')
-            if cover_image_url:
-                db_book.cover_image_url = cover_image_url
+            if cover_image_url and cover_image_url != db_book.cover_image_url:
+                # azure stuff
+                parsed_url = urlparse(db_book.cover_image_url)
+                blob_name = '/'.join(parsed_url.path.split('/')[2:])
+
+                storage_url = os.environ.get('AZURE_STORAGE_URL')
+                container_name = os.environ.get('AZURE_STORAGE_CONTAINER')
+                credential = DefaultAzureCredential()
+                blob_service_client = BlobServiceClient(account_url = storage_url, credential=credential)
+                container_client = blob_service_client.get_container_client(container_name)
+
+                # Delete the blob
+                blob_client = container_client.get_blob_client(blob_name)
+                blob_client.delete_blob()
+
+                # ready file for upload
+                filename = cover_image_url.name
+                file_upload_name = str(uuid.uuid4()) + filename
+
+                blob_client = container_client.get_blob_client(file_upload_name)
+
+                # Upload the file to Azure Blob Storage
+                blob_client.upload_blob(cover_image_url.read(), overwrite=True)
+                blob_url = blob_client.url
+
+                db_book.cover_image_url = blob_url
 
             author = request_book.validated_data.get('author')
             if author:
@@ -155,10 +172,10 @@ class InventoryOperation(APIView):
             db_book.save()
 
             books = self.model.objects.all()
-            books_list = [{'id': book.id,'title': book.title, 'description': book.description,'author': book.author,'genre':    book.genre.name,'price': book.price,'cover_image_url': os.environ.get('BACKEND_URL')+book.cover_image_url.url,'is_available': book.is_available} for book in books]
+            books_list = [{'id': book.id,'title': book.title, 'description': book.description,'author': book.author,'genre':   book.genre.name,'price': book.price,'cover_image_url': book.cover_image_url,'is_available': book.is_available} for book in books]
 
             inventory = self.model.objects.filter(published_by = request.user.id)
-            json_inventory = [{'id': book.id,'title': book.title, 'description': book.description,'author': book.author,'genre':    book.genre.name,'price': book.price,'cover_image_url': os.environ.get('BACKEND_URL')+book.cover_image_url.url,'is_available': book.is_available} for book in inventory]
+            json_inventory = [{'id': book.id,'title': book.title, 'description': book.description,'author': book.author,'genre':    book.genre.name,'price': book.price,'cover_image_url': book.cover_image_url,'is_available': book.is_available} for book in inventory]
             return Response({
                 'books': books_list,
                 'inventory': json_inventory
@@ -175,13 +192,27 @@ class InventoryOperation(APIView):
             data = request.data
             db_book = self.model.objects.get(id=id)
 
+            # azure stuff
+            parsed_url = urlparse(db_book.cover_image_url)
+            blob_name = '/'.join(parsed_url.path.split('/')[2:])
+
+            storage_url = os.environ.get('AZURE_STORAGE_URL')
+            container_name = os.environ.get('AZURE_STORAGE_CONTAINER')
+            credential = DefaultAzureCredential()
+            blob_service_client = BlobServiceClient(account_url = storage_url, credential=credential)
+            container_client = blob_service_client.get_container_client(container_name)
+
+            # Delete the blob
+            blob_client = container_client.get_blob_client(blob_name)
+            blob_client.delete_blob()
+
             db_book.delete()
 
             books = self.model.objects.all()
-            books_list = [{'id': book.id,'title': book.title, 'description': book.description,'author': book.author,'genre':    book.genre.name,'price': book.price,'cover_image_url': os.environ.get('BACKEND_URL')+book.cover_image_url.url,'is_available': book.is_available} for book in books]
+            books_list = [{'id': book.id,'title': book.title, 'description': book.description,'author': book.author,'genre':   book.genre.name,'price': book.price,'cover_image_url': book.cover_image_url,'is_available': book.is_available} for book in books]
 
             inventory = self.model.objects.filter(published_by = request.user.id)
-            json_inventory = [{'id': book.id,'title': book.title, 'description': book.description,'author': book.author,'genre':    book.genre.name,'price': book.price,'cover_image_url': os.environ.get('BACKEND_URL')+book.cover_image_url.url,'is_available': book.is_available} for book in inventory]
+            json_inventory = [{'id': book.id,'title': book.title, 'description': book.description,'author': book.author,'genre':    book.genre.name,'price': book.price,'cover_image_url': book.cover_image_url,'is_available': book.is_available} for book in inventory]
             return Response({
                 'books': books_list,
                 'inventory': json_inventory
@@ -198,7 +229,7 @@ class Inventory(APIView):
     def get(self,request):
         try:
             books = self.model.objects.filter(published_by = request.user.id)
-            books_list = [{'id': book.id,'title': book.title, 'description': book.description,'author': book.author,'genre':    book.genre.name,'price': book.price,'cover_image_url': os.environ.get('BACKEND_URL')+book.cover_image_url.url,'is_available': book.is_available} for book in books]
+            books_list = [{'id': book.id,'title': book.title, 'description': book.description,'author': book.author,'genre':   book.genre.name,'price': book.price,'cover_image_url': book.cover_image_url,'is_available': book.is_available} for book in books]
 
             return Response({
                 'books': books_list
@@ -240,7 +271,7 @@ class BookSearchAPIView(APIView):
             if authors:
                 queryset = queryset.filter(author__in=authors)
 
-            books_list = [{'id': book.id,'title': book.title, 'description': book.description,'author': book.author,'genre':    book.genre.name,'price': book.price,'cover_image_url': os.environ.get('BACKEND_URL')+book.cover_image_url.url,'is_available': book.is_available} for book in queryset]        
+            books_list = [{'id': book.id,'title': book.title, 'description': book.description,'author': book.author,'genre':    book.genre.name,'price': book.price,'cover_image_url': book.cover_image_url,'is_available': book.is_available} for book in queryset]        
             return Response({'books': books_list},status=200)
         except Exception as err:
             return Response({'message': err.args},status=500)

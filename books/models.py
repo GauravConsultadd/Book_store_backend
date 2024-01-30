@@ -10,7 +10,7 @@ class BookModel(models.Model):
     price = models.IntegerField()
     description = models.TextField()
     published_by = models.ForeignKey(CustomUser,on_delete=models.CASCADE)
-    cover_image_url = models.FileField(upload_to='images/',null=True)
+    cover_image_url = models.CharField(max_length=500)
     is_available = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
