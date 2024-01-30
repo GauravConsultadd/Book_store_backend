@@ -93,10 +93,25 @@ WSGI_APPLICATION = 'book_store.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/5.0/ref/settings/#databases
 
+# DATABASES = {
+#     'default': {
+#         'ENGINE': 'django.db.backends.sqlite3',
+#         'NAME': BASE_DIR / 'db.sqlite3',
+#     }
+# }
+
+import pymysql
+
+pymysql.install_as_MySQLdb()
+
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+        'ENGINE': 'django.db.backends.mysql',
+        'NAME': os.environ.get('MYSQL_DATABASE'),
+        'USER': 'root', #os.environ.get('MYSQL_USER')
+        'PASSWORD': os.environ.get('MYSQL_PASSWORD'),
+        'HOST':os.environ.get('MYSQL_HOST'), #change
+        'PORT':'3306',
     }
 }
 
