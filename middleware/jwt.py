@@ -1,0 +1,26 @@
+from django.http import JsonResponse
+from rest_framework_simplejwt.tokens import UntypedToken, TokenError
+from rest_framework_simplejwt.authentication import JWTAuthentication
+
+class JWTMiddleware:
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    def __call__(self, request):
+        jwt_auth = JWTAuthentication()
+        authorization_header = request.headers.get('Authorization')
+
+        if authorization_header and authorization_header.startswith('Bearer '):
+            token = authorization_header.split(' ')[1]
+
+            try:
+                # Attempt to decode the token
+                validated_token = jwt_auth.get_validated_token(token)
+                user = jwt_auth.get_user(validated_token)
+                request.user = user
+            except TokenError as e:
+                print("yaha")
+                return JsonResponse({'error': 'Invalid token'}, status=401)
+
+        response = self.get_response(request)
+        return response
