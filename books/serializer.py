@@ -17,7 +17,7 @@ class createBookSerializer(serializers.Serializer):
 class updateBookSerializer(serializers.Serializer):
     title = serializers.CharField(max_length=255,required=False)
     author = serializers.CharField(max_length=100,required=False)
-    cover_image_url = serializers.URLField(required=False)
+    cover_image_url = serializers.FileField(required=False)
     genre = serializers.CharField(required=False)
     description = serializers.CharField(max_length=1000,required=False)
     price = serializers.IntegerField(required=False)

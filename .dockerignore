@@ -1,0 +1,38 @@
+# Django
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+
+# Version control
+.git
+.svn
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+
+# Database files
+*.sqlite3
+
+# Compiled Python files
+*.pyc
+
+# Local development settings
+.env
+.env.local
+
+# Logs
+logs/
+
+# Python virtual environment
+env/
+
+# Static and media files (only relevant for development, not production)
+/static/
+/media/
+
+# Docker-specific files
+Dockerfile
+.dockerignore

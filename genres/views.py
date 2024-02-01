@@ -1,7 +1,7 @@
 from django.shortcuts import render
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import IsAuthenticated,IsAdminUser
 
 # model imports
 from .models import GenreModel
@@ -11,7 +11,7 @@ from .serializer import *
 class createGenre(APIView):
     model = GenreModel
     serializer = createGenreSerializer
-    permission_classes=[IsAuthenticated]
+    permission_classes=[IsAuthenticated,IsAdminUser]
 
     def post(self,request):
         try:
@@ -25,9 +25,6 @@ class createGenre(APIView):
 
             if not genre.is_valid():
                 return Response({'error' : genre.error_messages,'message':'Invalid data'},status=400)
-            
-            print(genre.validated_data.get('name'))
-            print(genre.validated_data.get('description'))
 
             name = str(genre.validated_data.get('name'))
             description = str(genre.validated_data.get('description'))
@@ -132,6 +129,5 @@ class GenreNamesApi(APIView):
                 'genres': genres_list
             },status=200)
 
-            return Response({'authors': author_names}, status=200)
         except Exception as err:
             return Response({'message': err.args},status=500)

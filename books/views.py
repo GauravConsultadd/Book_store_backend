@@ -114,15 +114,15 @@ class InventoryOperation(APIView):
             request_book = self.serializer_class(data=data)
 
             if not request_book.is_valid():
-                return Response({'message': request_book.error_messages},status=403)
+                return Response({'message': request_book.error_messages},status=400)
             print("yaha")
-            
             
 
             title = str(request_book.validated_data.get('title'))
             if title:
                 db_book.title = title
 
+            print('image start')
             cover_image_url = request_book.validated_data.get('cover_image_url')
             if cover_image_url and cover_image_url != db_book.cover_image_url:
                 # azure stuff
@@ -151,6 +151,7 @@ class InventoryOperation(APIView):
 
                 db_book.cover_image_url = blob_url
 
+            print('image end')
             author = request_book.validated_data.get('author')
             if author:
                 db_book.author = author

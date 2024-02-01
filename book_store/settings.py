@@ -100,18 +100,16 @@ WSGI_APPLICATION = 'book_store.wsgi.application'
 #     }
 # }
 
-import pymysql
-
-pymysql.install_as_MySQLdb()
+import psycopg2
 
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.mysql',
-        'NAME': os.environ.get('MYSQL_DATABASE'),
-        'USER': 'root', #os.environ.get('MYSQL_USER')
-        'PASSWORD': os.environ.get('MYSQL_PASSWORD'),
-        'HOST':os.environ.get('MYSQL_HOST'), #change
-        'PORT':'3306',
+        'ENGINE': 'django.db.backends.postgresql',
+        'NAME': os.environ.get('POSTGRES_DB'),
+        'USER': os.environ.get('POSTGRES_USER'),
+        'PASSWORD': os.environ.get('POSTGRES_PASSWORD'),
+        'HOST': 'azure-demon.postgres.database.azure.com',  # You can set your PostgreSQL host here
+        'PORT': '5432',  # Default PostgreSQL port
     }
 }
 
@@ -151,6 +149,7 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/5.0/howto/static-files/
 
 STATIC_URL = 'static/'
+STATIC_ROOT = '/app/static/'
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.0/ref/settings/#default-auto-field

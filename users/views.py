@@ -141,7 +141,7 @@ class GetCurrentUser(APIView):
             'is_staff': user.is_staff,
             'is_superuser': user.is_superuser,
         }
-        return Response({'user': json_user})
+        return Response({'user': json_user},status=200)
 
 class Checker(APIView):
     permission_classes=[IsAuthenticated]
@@ -162,6 +162,6 @@ class AdminView(APIView):
 
             return Response({
                 'users': json_users
-            })
+            },status=200)
         except Exception as err:
             return Response({'message': err.args},status=500)
