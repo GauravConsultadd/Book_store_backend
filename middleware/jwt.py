@@ -19,7 +19,6 @@ class JWTMiddleware:
                 user = jwt_auth.get_user(validated_token)
                 request.user = user
             except TokenError as e:
-                print("yaha")
                 return JsonResponse({'error': 'Invalid token'}, status=401)
 
         response = self.get_response(request)

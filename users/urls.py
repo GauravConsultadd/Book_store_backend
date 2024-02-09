@@ -11,4 +11,7 @@ urlpatterns = [
     # path('',LoadUser.as_view()),
     path('getCurrentUser/',GetCurrentUser.as_view()),
     path('admin/',AdminView.as_view(),name='admin'),
+    path('role/', RoleChange.as_view(),name="role"),
+    path('forgot/', ForgotPassword.as_view(),name="forgot"),
+    path('reset/<str:uidb64>/<str:token>/', ResetPassword.as_view(),name="reset"),
 ]

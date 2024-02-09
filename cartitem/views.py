@@ -51,7 +51,18 @@ class cartOperations(APIView):
 
         except Exception as err:
             return Response({'message':err.args},status=500)
-        
+    
+    def delete(self,request):
+        try:
+            cart = self.model.objects.filter(user__id = request.user.id)
+            cart.delete()
+
+            return Response({
+                'message': 'deleted successfully',
+                'cart': []
+            },status=200)
+        except Exception as err:
+            return Response({'message':err.args},status=500) 
 
 
 class CartItemView(APIView):
